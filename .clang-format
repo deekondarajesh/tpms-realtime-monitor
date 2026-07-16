@@ -1,0 +1,13 @@
+# Coding standard for this project's own source (src/, tests/).
+# Not applied to vendored code under Middlewares/ or Drivers/CMSIS,
+# which retain their upstream formatting.
+BasedOnStyle: LLVM
+IndentWidth: 4
+TabWidth: 4
+UseTab: Never
+BreakBeforeBraces: Allman
+ColumnLimit: 100
+PointerAlignment: Right
+AlignConsecutiveAssignments: false
+SpaceBeforeParens: ControlStatements
+IndentCaseLabels: true
