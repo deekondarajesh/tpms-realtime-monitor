@@ -15,9 +15,12 @@
 
 #include "alert_detection.h"
 #include "can_comm.h"
+#include "pressure_calibration.h"
 #include "stm32f103xb.h"
 
 #define ALERT_GPIO_PIN_MASK   (1UL << 0)  /* PB0 */
+
+static uint8_t debounce_counters[NUM_SENSOR_CHANNELS];
 
 void alert_detection_init(void)
 {
@@ -26,6 +29,11 @@ void alert_detection_init(void)
     /* PB0: general-purpose output, push-pull, 2MHz -> bits [3:0] of CRL */
     GPIOB->CRL &= ~(0xFUL << 0);
     GPIOB->CRL |=  ((GPIO_CNF_OUTPUT_PP << 2) | GPIO_MODE_OUTPUT_2MHZ) << 0;
+
+    for (uint8_t ch = 0; ch < NUM_SENSOR_CHANNELS; ch++)
+    {
+        debounce_counters[ch] = 0;
+    }
 
     alert_set_output(false);
 }
@@ -36,17 +44,44 @@ bool alert_is_out_of_range(float pressure_kpa)
            (pressure_kpa > PRESSURE_HIGH_THRESHOLD_KPA);
 }
 
+bool alert_debounce_update(uint8_t channel, bool out_of_range)
+{
+    if (channel >= NUM_SENSOR_CHANNELS)
+    {
+        return false;
+    }
+
+    if (out_of_range)
+    {
+        if (debounce_counters[channel] < ALERT_DEBOUNCE_THRESHOLD)
+        {
+            debounce_counters[channel]++;
+        }
+    }
+    else
+    {
+        debounce_counters[channel] = 0;
+    }
+
+    return debounce_counters[channel] >= ALERT_DEBOUNCE_THRESHOLD;
+}
+
 bool alert_check(uint8_t channel, float pressure_kpa)
 {
-    bool in_alert = alert_is_out_of_range(pressure_kpa);
+    bool out_of_range   = alert_is_out_of_range(pressure_kpa);
+    bool should_trigger = alert_debounce_update(channel, out_of_range);
 
-    if (in_alert)
+    if (should_trigger)
     {
         alert_set_output(true);
         can_send_alert(channel, pressure_kpa);
     }
+    else if (!out_of_range)
+    {
+        alert_set_output(false);
+    }
 
-    return in_alert;
+    return should_trigger;
 }
 
 void alert_set_output(bool active)
