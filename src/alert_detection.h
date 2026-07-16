@@ -14,6 +14,20 @@ void alert_detection_init(void);
 /* Pure threshold logic - no hardware access, safe to call from host-side unit tests */
 bool alert_is_out_of_range(float pressure_kpa);
 
+/* Number of consecutive out-of-range readings required before an alert
+   actually fires - filters out single noisy ADC samples so a momentary
+   glitch doesn't trigger a false alarm. */
+#define ALERT_DEBOUNCE_THRESHOLD   3U
+
+/*
+ * Pure debounce logic (no hardware access, unit-testable): tracks
+ * consecutive out-of-range readings per channel. Returns true only once
+ * ALERT_DEBOUNCE_THRESHOLD consecutive out-of-range calls have been seen
+ * for that channel; resets the count as soon as the channel reports
+ * in-range again.
+ */
+bool alert_debounce_update(uint8_t channel, bool out_of_range);
+
 /*
  * Evaluates a calibrated pressure reading against the configured thresholds
  * AND drives the hardware alert output / CAN alert frame if out of range.

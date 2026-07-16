@@ -92,6 +92,30 @@ static void test_alert_thresholds(void)
                 "exactly the high threshold value is still considered in-range");
 }
 
+static void test_alert_debounce(void)
+{
+    printf("test_alert_debounce:\n");
+
+    /* Fresh channel: first two consecutive out-of-range readings should NOT
+       yet trigger (below ALERT_DEBOUNCE_THRESHOLD of 3) */
+    EXPECT_TRUE(alert_debounce_update(0, true) == false,
+                "1st consecutive out-of-range reading does not yet trigger");
+    EXPECT_TRUE(alert_debounce_update(0, true) == false,
+                "2nd consecutive out-of-range reading does not yet trigger");
+    EXPECT_TRUE(alert_debounce_update(0, true) == true,
+                "3rd consecutive out-of-range reading triggers the alert");
+
+    /* A single good reading should reset the debounce counter */
+    EXPECT_TRUE(alert_debounce_update(0, false) == false,
+                "an in-range reading resets the debounce count");
+    EXPECT_TRUE(alert_debounce_update(0, true) == false,
+                "count restarts from 1 after a reset, so this alone does not trigger");
+
+    /* Channels are independent of one another */
+    EXPECT_TRUE(alert_debounce_update(1, true) == false,
+                "channel 1's debounce count is independent of channel 0's");
+}
+
 int main(void)
 {
     printf("Running TPMS logic unit tests...\n\n");
@@ -100,6 +124,7 @@ int main(void)
     test_calibration_accuracy_spec();
     test_calibration_invalid_channel();
     test_alert_thresholds();
+    test_alert_debounce();
 
     printf("\n%d/%d tests passed.\n", tests_run - tests_failed, tests_run);
     return (tests_failed == 0) ? 0 : 1;
